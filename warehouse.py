@@ -1,9 +1,8 @@
 
 import redis
 import cjson
-import logging
+from logger import logger
 from datetime import datetime
-
 
 class Warehouse(object):
 
@@ -15,7 +14,6 @@ class Warehouse(object):
         self.storage_slot = redis.Redis(connection_pool=self.storage)
 
     def store(self, from_field, crop):
-        logging.info('storing %s => %s' % (from_field, crop))
         self.storage_slot.set(from_field, cjson.encode(crop))
         self.update_known_field(from_field)
 

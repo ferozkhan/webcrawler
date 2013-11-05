@@ -1,6 +1,7 @@
 
 from warehouse import Warehouse
-import logging
+
+from logger import logger
 
 class CropLoader(object):
 
@@ -10,6 +11,7 @@ class CropLoader(object):
         self.from_field = field
 
     def store_into_warehouse(self):
+        logger.debug('Storing %s => %s' % (self.from_field, self.container))
         self.warehouse.store(self.from_field, self.container)
 
     def start(self):

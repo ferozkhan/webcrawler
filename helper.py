@@ -1,7 +1,8 @@
 
 import re
 import requests
-import logging
+
+from logger import logger
 
 class Helper(object):
 
@@ -14,6 +15,5 @@ class Helper(object):
         return f.text
 
     def filter_crop(self):
-        logging.info('filtering crop')
         return re.findall(self.crop, self.raw_crop())
 
