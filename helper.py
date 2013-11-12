@@ -1,5 +1,7 @@
 
 import re
+import urllib
+import BeautifulSoup as bs
 import requests
 
 from logger import logger
@@ -10,10 +12,8 @@ class Helper(object):
         self.field = field
         self.crop = crop
 
-    def raw_crop(self):
-        f = requests.get(self.field)
-        return f.text
-
     def filter_crop(self):
-        return re.findall(self.crop, self.raw_crop())
+        _raw_crop = urllib.urlopen(self.field)
+        _arranged_raw_crop = bs.BeautifulSoup(_raw_crop)
+        return _arranged_raw_crop.findAll(self.crop)
 
