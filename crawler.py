@@ -1,9 +1,12 @@
 
+import time
 import redis
 import cjson
 import requests
+import traceback
 import BeautifulSoup
 from logger import logger
+
 
 class Storage(object):
 
@@ -18,6 +21,7 @@ class Storage(object):
         _key = ':'.join(key)
         self.connection.set(_key, data)
 
+
 class Crawler(object):
 
     def __init__(self, pages, data_patterns):
@@ -25,24 +29,30 @@ class Crawler(object):
         self.data_patterns = data_patterns
         self.storage = Storage()
         self.container = {}
+        self.links = []
 
-    def crawl(self):
+    def crawl(self, callback=None):
         if self.pages and self.data_patterns:
             try:
-                _data = []
+                _data, _attrs = [], {}
                 for page in self.pages:
                     __page_html = requests.get(page).text
                     __page_xml = BeautifulSoup.BeautifulSoup(__page_html)
                     for pattern in self.data_patterns:
-                        for data in __page_xml.findAll(pattern):
-                            _data.append(data)
-                        self.storage.store((page, pattern), _data)
+                        if 'element' not in pattern:
+                            raise Exception('"Element" is missing')
+
+                        data = __page_xml.findAll([pattern], _attrs)
+                        for d in data:
+                            print d.text
+
+                        # self.storage.store((page, pattern), _data)
             except Exception as e:
                 raise e
 
 
 
 if __name__ == '__main__':
-    c = Crawler(['http://in.yahoo.com', 'http://google.com/'], ['img', 'a'])
+    c = Crawler(['ANY_URL'], [{'element':['span']}])
     c.crawl()
 
