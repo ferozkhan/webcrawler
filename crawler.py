@@ -8,14 +8,18 @@ import BeautifulSoup
 from logger import logger
 
 
-class Storage(object):
-
+class RedisStorage(object):
+    
     def __init__(self, host='127.0.0.1', port=6379, db=0):
-        self.host = host
-        self.port = port
-        self.db = db
-        self.connection_pool = redis.ConnectionPool(host=self.host, port=self.port, db=self.db)
-        self.connection = redis.Redis(connection_pool=self.connection_pool)
+        super(RedisStorage, self).__init__()
+        self__pool = redis.ConnectionPool(host=self.host, port=self.port, db=self.db)
+        self.connection = redis.Redis(connection_pool=self.__pool)
+            
+
+class Storage(RedisStorage):
+
+    def __init__(self):
+        super(RedisStorage, self).__init__()
 
     def store(self, key, data):
         _key = ':'.join(key)
@@ -25,6 +29,7 @@ class Storage(object):
 class Crawler(object):
 
     def __init__(self, pages, data_patterns):
+        super(Crawler, self).__init__()
         self.pages = pages
         self.data_patterns = data_patterns
         self.storage = Storage()
