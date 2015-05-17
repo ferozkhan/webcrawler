@@ -1,63 +1,86 @@
 
 import time
 import redis
-import cjson
+import threading
 import requests
-import traceback
 import BeautifulSoup
-from logger import logger
+import logging
+
+
+logging.basicConfig(level=logging.INFO,
+                    format='(%(threadName)-10s) %(message)s',
+                    )
 
 
 class RedisStorage(object):
-    
+
     def __init__(self, host='127.0.0.1', port=6379, db=0):
         super(RedisStorage, self).__init__()
-        self__pool = redis.ConnectionPool(host=self.host, port=self.port, db=self.db)
+        self.__pool = redis.ConnectionPool(host=host, port=port, db=db)
         self.connection = redis.Redis(connection_pool=self.__pool)
-            
+
 
 class Storage(RedisStorage):
 
     def __init__(self):
-        super(RedisStorage, self).__init__()
+        super(Storage, self).__init__()
 
     def store(self, key, data):
-        _key = ':'.join(key)
-        self.connection.set(_key, data)
+        self.connection.set('_key', data)
 
 
-class Crawler(object):
+class DataCruncher(threading.Thread):
 
-    def __init__(self, pages, data_patterns):
-        super(Crawler, self).__init__()
-        self.pages = pages
+    def __init__(self, web_data_queue, data_patterns):
+        super(DataCruncher, self).__init__()
+        self.web_data_queue = web_data_queue
         self.data_patterns = data_patterns
-        self.storage = Storage()
-        self.container = {}
-        self.links = []
 
-    def crawl(self, callback=None):
-        if self.pages and self.data_patterns:
-            try:
-                _data, _attrs = [], {}
-                for page in self.pages:
-                    __page_html = requests.get(page).text
-                    __page_xml = BeautifulSoup.BeautifulSoup(__page_html)
-                    for pattern in self.data_patterns:
-                        if 'element' not in pattern:
-                            raise Exception('"Element" is missing')
+    def run(self):
+        while True:
+            data = self.web_data_queue.get()
+            xml_data = BeautifulSoup.BeautifulSoup(requests.get(data).text)
+            collected_data = {}
+            for pattern in self.data_patterns:
+                for element in pattern.get('elements'):
+                    logging.info('Collecting data for %s', element)
+                    collected_data[element] = xml_data.findAll(element)
 
-                        data = __page_xml.findAll([pattern], _attrs)
-                        for d in data:
-                            print d.text
-
-                        # self.storage.store((page, pattern), _data)
-            except Exception as e:
-                raise e
+            self.web_data_queue.task_done()
 
 
+class Crawler(threading.Thread):
 
+    def __init__(self, web_url_queue, web_data_queue):
+        super(Crawler, self).__init__()
+        self.web_data_queue = web_data_queue
+        self.web_urls_queue = web_urls_queue
+
+    def run(self):
+        while True:
+            page = self.web_urls_queue.get()
+            self.web_data_queue.put(page)
+            self.web_urls_queue.task_done()
+
+
+from Queue import Queue
+web_urls_queue = Queue()
+web_data_queue = Queue()
 if __name__ == '__main__':
-    c = Crawler(['ANY_URL'], [{'element':['span']}])
-    c.crawl()
+    start = time.time()
+    for i in range(5):
+        crawler = Crawler(web_urls_queue, web_data_queue)
+        crawler.setDaemon(True)
+        crawler.start()
 
+    for i in range(5):
+        cruncher = DataCruncher(web_data_queue, [{'elements': []}])
+        cruncher.setDaemon(True)
+        cruncher.start()
+
+    for web in ["http://bing.com", "http://yahoo.com"]:
+        web_urls_queue.put(web)
+
+    web_urls_queue.join()
+    web_data_queue.join()
+    print logging.info('elapsed time: %s' % (time.time() - start))
