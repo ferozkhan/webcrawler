@@ -12,18 +12,18 @@ logging.basicConfig(level=logging.INFO,
                     )
 
 
-class RedisStorage(object):
+class Redis(object):
 
     def __init__(self, host='127.0.0.1', port=6379, db=0):
-        super(RedisStorage, self).__init__()
+        super(Redis, self).__init__()
         self.__pool = redis.ConnectionPool(host=host, port=port, db=db)
         self.connection = redis.Redis(connection_pool=self.__pool)
 
 
-class Storage(RedisStorage):
+class RedisStorage(Redis):
 
     def __init__(self):
-        super(Storage, self).__init__()
+        super(RedisStorage, self).__init__()
 
     def store(self, key, data):
         self.connection.set('_key', data)
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         crawler.start()
 
     for i in range(5):
-        cruncher = DataCruncher(web_data_queue, [{'elements': []}])
+        cruncher = DataCruncher(web_data_queue, [{'elements': ['a', 'span']}])
         cruncher.setDaemon(True)
         cruncher.start()
 
