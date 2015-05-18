@@ -48,15 +48,13 @@ class RedisStorage(Redis):
 
 class DataCrawler(threading.Thread):
 
-    def __init__(self, web_data_queue):
+    def __init__(self, web_xml_queue):
         super(DataCrawler, self).__init__()
-        self.web_data_queue = web_data_queue
+        self.web_xml_queue = web_xml_queue
 
     def run(self):
         while True:
-            url, elements = self.web_data_queue.get()
-            xml_data = BeautifulSoup.BeautifulSoup(requests.get(url).text)
-            logging.info('Collecting data from %s for %s' % (url, elements))
+            xml_data, elements = self.web_xml_queue.get()
             _data = {}
             for e in elements:
                 if isinstance(e, dict):
@@ -64,6 +62,22 @@ class DataCrawler(threading.Thread):
                 else:
                     _data[e] = xml_data.findAll(e)
             print _data
+            self.web_xml_queue.task_done()
+
+
+class XMLData(threading.Thread):
+
+    def __init__(self, web_data_queue, web_xml_queue):
+        super(XMLData, self).__init__()
+        self.web_data_queue = web_data_queue
+        self.web_xml_queue = web_xml_queue
+
+    def run(self):
+        while True:
+            url, elements = self.web_data_queue.get()
+            logging.info('Processing data from %s for %s' % (url, elements))
+            xml_data = BeautifulSoup.BeautifulSoup(requests.get(url).text)
+            self.web_xml_queue.put((xml_data, elements))
             self.web_data_queue.task_done()
 
 
@@ -85,7 +99,7 @@ class Crawler(threading.Thread):
 from Queue import Queue
 web_urls_queue = Queue()
 web_data_queue = Queue()
-
+web_xml_queue = Queue()
 
 if __name__ == '__main__':
     start = time.time()
@@ -97,7 +111,13 @@ if __name__ == '__main__':
         crawler.start()
 
     for i in range(THREAD_REQUIERD):
-        cruncher = DataCrawler(web_data_queue)
+        cruncher = DataCrawler(web_xml_queue)
+        cruncher.setDaemon(True)
+        threads.append(cruncher)
+        cruncher.start()
+
+    for i in range(THREAD_REQUIERD):
+        cruncher = XMLData(web_data_queue, web_xml_queue)
         cruncher.setDaemon(True)
         threads.append(cruncher)
         cruncher.start()
@@ -107,5 +127,6 @@ if __name__ == '__main__':
 
     web_urls_queue.join()
     web_data_queue.join()
+    web_xml_queue.join()
 
     print logging.info('elapsed time: %s' % (time.time() - start))
