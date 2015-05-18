@@ -110,13 +110,11 @@ if __name__ == '__main__':
         threads.append(crawler)
         crawler.start()
 
-    for i in range(THREAD_REQUIERD):
         cruncher = DataCrawler(web_xml_queue)
         cruncher.setDaemon(True)
         threads.append(cruncher)
         cruncher.start()
 
-    for i in range(THREAD_REQUIERD):
         cruncher = XMLData(web_data_queue, web_xml_queue)
         cruncher.setDaemon(True)
         threads.append(cruncher)
