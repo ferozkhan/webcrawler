@@ -1,49 +1,32 @@
 
 
-THREAD_REQUIERD = 5
-_inputs = [
-    {
-        'http://www.bbc.com': [
-            {'class': 'hero_title'},
-            {'class': 'module_title'}
-        ]
-    },
-    {
-        'http://www.smashingmagazine.com/': [
-            {'rel': 'bookmark'}
-        ]
-    }
-]
-
-
 import time
-import redis
+import json
 import threading
 import requests
 import BeautifulSoup
 import logging
 
+THREAD_REQUIERD = 5
 
 logging.basicConfig(level=logging.INFO,
                     format='(%(threadName)-10s) %(message)s',
                     )
 
 
-class Redis(object):
-
-    def __init__(self, host='127.0.0.1', port=6379, db=0):
-        super(Redis, self).__init__()
-        self.__pool = redis.ConnectionPool(host=host, port=port, db=db)
-        self.connection = redis.Redis(connection_pool=self.__pool)
+class InputData(object):
+    def read(self):
+        raise NotImplementedError
 
 
-class RedisStorage(Redis):
+class JSONInputData(InputData):
+    def __init__(self, path):
+        super(JSONInputData, self).__init__()
+        self.path = path
 
-    def __init__(self):
-        super(RedisStorage, self).__init__()
-
-    def store(self, key, data):
-        self.connection.set('_key', data)
+    def read(self):
+        with open(self.path) as f:
+            return json.loads(f.read())
 
 
 class DataCrawler(threading.Thread):
@@ -120,7 +103,8 @@ if __name__ == '__main__':
         threads.append(cruncher)
         cruncher.start()
 
-    for _input in _inputs:
+    json_data = JSONInputData('input.json')
+    for _input in json_data.read():
         web_urls_queue.put(_input)
 
     web_urls_queue.join()

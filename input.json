@@ -1,0 +1,14 @@
+
+[
+    {
+        "http://www.bbc.com": [
+            {"class": "hero_title"},
+            {"class": "module_title"}
+        ]
+    },
+    {
+        "http://www.smashingmagazine.com/": [
+            {"rel": "bookmark"}
+        ]
+    }
+]
