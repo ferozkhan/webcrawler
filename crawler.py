@@ -2,16 +2,19 @@
 
 import time
 import json
-import threading
 import requests
 import BeautifulSoup
 import logging
+from collections import namedtuple
+from multiprocessing import Pool
 
 THREAD_REQUIERD = 5
 
 logging.basicConfig(level=logging.INFO,
-                    format='(%(threadName)-10s) %(message)s',
+                    format='(%(threadName)-5s) %(message)s',
                     )
+
+INPUT = namedtuple('INPUT', ('url', 'scrap_formats'))
 
 
 class InputData(object):
@@ -29,86 +32,35 @@ class JSONInputData(InputData):
             return json.loads(f.read())
 
 
-class DataCrawler(threading.Thread):
-
-    def __init__(self, web_xml_queue):
-        super(DataCrawler, self).__init__()
-        self.web_xml_queue = web_xml_queue
-
-    def run(self):
-        while True:
-            xml_data, elements = self.web_xml_queue.get()
-            _data = {}
-            for e in elements:
-                if isinstance(e, dict):
-                    _data[e.items()[0][1]] = [x.getText() for x in xml_data.findAll(attrs=e)]
-                else:
-                    _data[e] = xml_data.findAll(e)
-            print _data
-            self.web_xml_queue.task_done()
+def parse_input(raw_input):
+    return INPUT(raw_input.items()[0][0], raw_input.items()[0][1])
 
 
-class XMLData(threading.Thread):
-
-    def __init__(self, web_data_queue, web_xml_queue):
-        super(XMLData, self).__init__()
-        self.web_data_queue = web_data_queue
-        self.web_xml_queue = web_xml_queue
-
-    def run(self):
-        while True:
-            url, elements = self.web_data_queue.get()
-            logging.info('Processing data from %s for %s' % (url, elements))
-            xml_data = BeautifulSoup.BeautifulSoup(requests.get(url).text)
-            self.web_xml_queue.put((xml_data, elements))
-            self.web_data_queue.task_done()
+def get_page_xml_source(url):
+    page = requests.get(url).text
+    return BeautifulSoup.BeautifulSoup(page)
 
 
-class Crawler(threading.Thread):
+def scrap_data(input):
+    xml_data = get_page_xml_source(input.url)
+    scrap_data = []
+    for sf in input.scrap_formats:
+        if isinstance(sf, dict):
+            sub_scrap_data = {
+                sf.items()[0]: [d.getText() for d in xml_data.findAll(attrs=sf)]
+            }
+        else:
+            sub_scrap_data = {
+                sf: [d.getText() for d in xml_data.findAll(sf)]
+            }
+        scrap_data.append(sub_scrap_data)
+    return scrap_data
 
-    def __init__(self, web_url_queue, web_data_queue):
-        super(Crawler, self).__init__()
-        self.web_data_queue = web_data_queue
-        self.web_urls_queue = web_urls_queue
-
-    def run(self):
-        while True:
-            meta = self.web_urls_queue.get()
-            url, elements = meta.items()[0]
-            self.web_data_queue.put((url, elements))
-            self.web_urls_queue.task_done()
-
-
-from Queue import Queue
-web_urls_queue = Queue()
-web_data_queue = Queue()
-web_xml_queue = Queue()
 
 if __name__ == '__main__':
+    json_input = JSONInputData('input.json')
+    pool = Pool(5)
+    inputs = [parse_input(raw_input) for raw_input in json_input.read()]
     start = time.time()
-    threads = []
-    for i in range(THREAD_REQUIERD):
-        crawler = Crawler(web_urls_queue, web_data_queue)
-        crawler.setDaemon(True)
-        threads.append(crawler)
-        crawler.start()
-
-        cruncher = DataCrawler(web_xml_queue)
-        cruncher.setDaemon(True)
-        threads.append(cruncher)
-        cruncher.start()
-
-        cruncher = XMLData(web_data_queue, web_xml_queue)
-        cruncher.setDaemon(True)
-        threads.append(cruncher)
-        cruncher.start()
-
-    json_data = JSONInputData('input.json')
-    for _input in json_data.read():
-        web_urls_queue.put(_input)
-
-    web_urls_queue.join()
-    web_data_queue.join()
-    web_xml_queue.join()
-
-    print logging.info('elapsed time: %s' % (time.time() - start))
+    result = pool.map(scrap_data, inputs)
+    print 'elapsed time %10.7f' % (time.time() - start)
