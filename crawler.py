@@ -8,13 +8,11 @@ import logging
 from collections import namedtuple
 from multiprocessing import Pool
 
-THREAD_REQUIERD = 5
-
+POOL_REQUIERD = 2
+INPUT = namedtuple('INPUT', ('url', 'scrap_formats'))
 logging.basicConfig(level=logging.INFO,
                     format='(%(threadName)-5s) %(message)s',
                     )
-
-INPUT = namedtuple('INPUT', ('url', 'scrap_formats'))
 
 
 class InputData(object):
@@ -59,8 +57,8 @@ def scrap_data(input):
 
 if __name__ == '__main__':
     json_input = JSONInputData('input.json')
-    pool = Pool(5)
+    pool = Pool(POOL_REQUIERD)
     inputs = [parse_input(raw_input) for raw_input in json_input.read()]
     start = time.time()
     result = pool.map(scrap_data, inputs)
-    print 'elapsed time %10.7f' % (time.time() - start)
+    logging.info('Elapsed time %10.7f' % (time.time() - start))
