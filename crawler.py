@@ -1,33 +1,16 @@
 
-
-import time
-import json
-import requests
-import BeautifulSoup
 import logging
-from collections import namedtuple
+import requests
+import InputData
+import BeautifulSoup
 from multiprocessing import Pool
+from collections import namedtuple
 
-POOL_REQUIERD = 2
+POOL_REQUIERD = 15
 INPUT = namedtuple('INPUT', ('url', 'scrap_formats'))
 logging.basicConfig(level=logging.INFO,
-                    format='(%(threadName)-5s) %(message)s',
+                    format='(%(threadName)-5s) %(processName)s %(message)s',
                     )
-
-
-class InputData(object):
-    def read(self):
-        raise NotImplementedError
-
-
-class JSONInputData(InputData):
-    def __init__(self, path):
-        super(JSONInputData, self).__init__()
-        self.path = path
-
-    def read(self):
-        with open(self.path) as f:
-            return json.loads(f.read())
 
 
 def parse_input(raw_input):
@@ -42,6 +25,7 @@ def get_page_xml_source(url):
 def scrap_data(input):
     xml_data = get_page_xml_source(input.url)
     scrap_data = []
+    logging.info('scrapping: %s' % input.url)
     for sf in input.scrap_formats:
         if isinstance(sf, dict):
             sub_scrap_data = {
@@ -56,9 +40,9 @@ def scrap_data(input):
 
 
 if __name__ == '__main__':
-    json_input = JSONInputData('input.json')
+    json_input = InputData.JSONInputData('input.json')
     pool = Pool(POOL_REQUIERD)
     inputs = [parse_input(raw_input) for raw_input in json_input.read()]
-    start = time.time()
-    result = pool.map(scrap_data, inputs)
-    logging.info('Elapsed time %10.7f' % (time.time() - start))
+    results = [pool.apply_async(scrap_data, args=(input,)) for input in inputs]
+    for r in results:
+        logging.info(r.get())
