@@ -28,12 +28,13 @@ def scrap_data(input):
     for sf in input.scrap_formats:
         try:
             element = sf.pop('element')
-            return (
-                [d.getText(' ') for d in xml_data.findAll(element, attrs=sf)]
-            )
-        except KeyError, a:
+            return ((input.url, element, sf),
+                    [d.getText(' ')
+                     for d in xml_data.findAll(element, attrs=sf)]
+                    )
+        except KeyError, e:
             logging.error(
-                "Key: '{}' must be provided. URL: {}".format(a, input.url)
+                "Key: '{}' must be provided. URL: {}".format(e, input.url)
             )
 
 
