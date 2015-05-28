@@ -26,13 +26,14 @@ def get_page_xml_source(url):
 def scrap_data(data):
     xml_data = get_page_xml_source(data.url)
     logging.info('scrapping: %s' % data.url)
-    for sf in data.scrap_formats:
+    for scrap_format in data.scrap_formats:
         try:
-            element = sf.pop('element')
-            separator = sf.pop('separator') if 'separator' in sf else ''
-            return ((data.url, element, sf),
+            element = scrap_format.pop('element')
+            separator = scrap_format.pop('separator') if 'separator' in scrap_format else ''
+            logging.info('Scrapping: {}, Format element: {}'.format(data.url, element))
+            return ((data.url, element, scrap_format),
                     [d.getText(separator)
-                     for d in xml_data.findAll(element, attrs=sf)]
+                     for d in xml_data.findAll(element, attrs=scrap_format)]
                     )
         except KeyError, e:
             logging.error(
@@ -46,7 +47,9 @@ def scrapy_do(scrap_formats_file_name, pool_required=5):
     pool = Pool(pool_required)
     for scrap_format in scrap_formats_file.read():
         scraps_async_result.append(pool.apply_async(scrap_data, args=(prepare_input(scrap_format), )))
-
+    return scraps_async_result
 
 if __name__ == '__main__':
-    scrapy_do('input.json')
+    scraped_data = scrapy_do('input.json')
+    for data in scraped_data:
+        print data.get()
